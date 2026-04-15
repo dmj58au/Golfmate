@@ -1002,21 +1002,26 @@ function renderLeaderboard() {
   if (fmt === 'match' || fmt === 'matchgross') {
     const ms = matchPlayStatus(r, r.holeData.length - 1);
     const statusStr = ms ? ms.status : 'All Square';
-    document.getElementById('res-tab-0').innerHTML = `<div style='padding:20px;text-align:center'>
-      <div style='font-size:14px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px'>${fmtLabel(fmt)} Result</div>
-      <div style='font-size:28px;font-weight:700;color:var(--gold);margin-bottom:16px'>${statusStr}</div>
-      <div style='display:flex;justify-content:center;gap:0'>${r.players.map((p,i) => {
-        const holeWins = r.holeData.filter((h,hi) => matchHoleResult(r,hi) === i).length;
-        const halved = r.holeData.filter((h,hi) => matchHoleResult(r,hi) === -1).length;
-        return `<div style='flex:1;max-width:140px;background:var(--card);border-radius:var(--r);padding:14px;margin:0 4px'>
-          <div style='font-size:15px;font-weight:600'>${p.name}</div>
-          <div style='font-size:32px;font-weight:700;color:var(--gold);margin:6px 0'>${holeWins}</div>
-          <div style='font-size:12px;color:var(--text-muted)'>holes won</div>
-          <div style='font-size:11px;color:var(--text-muted);margin-top:4px'>HCP ${p.hcp}</div>
-        </div>`;
-      }).join('')}<div style='display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 8px'><div style='font-size:24px;font-weight:700;color:var(--text-muted)'>${r.holeData.filter((h,hi)=>matchHoleResult(r,hi)===-1).length}</div><div style='font-size:10px;color:var(--text-muted)'>halved</div></div></div>`;
-    })
-    .join('')}</div>`;
+    const halvedCount = r.holeData.filter((h,hi) => matchHoleResult(r,hi) === -1).length;
+    const playerCards = r.players.map((p, i) => {
+      const holeWins = r.holeData.filter((h,hi) => matchHoleResult(r,hi) === i).length;
+      return '<div style="flex:1;max-width:140px;background:var(--card);border-radius:var(--r);padding:14px;margin:0 4px;text-align:center">'
+        + '<div style="font-size:15px;font-weight:600">' + p.name + '</div>'
+        + '<div style="font-size:32px;font-weight:700;color:var(--gold);margin:6px 0">' + holeWins + '</div>'
+        + '<div style="font-size:12px;color:var(--text-muted)">holes won</div>'
+        + '<div style="font-size:11px;color:var(--text-muted);margin-top:4px">HCP ' + p.hcp + '</div>'
+        + '</div>';
+    }).join('');
+    const halvedCard = '<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 12px">'
+      + '<div style="font-size:28px;font-weight:700;color:var(--text-muted)">' + halvedCount + '</div>'
+      + '<div style="font-size:11px;color:var(--text-muted)">halved</div>'
+      + '</div>';
+    document.getElementById('res-tab-0').innerHTML =
+      '<div style="padding:20px;text-align:center">'
+      + '<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">' + fmtLabel(fmt) + ' Result</div>'
+      + '<div style="font-size:28px;font-weight:700;color:var(--gold);margin-bottom:16px">' + statusStr + '</div>'
+      + '<div style="display:flex;justify-content:center;align-items:stretch">' + playerCards + halvedCard + '</div>'
+      + '</div>';
     return;
   }
 
