@@ -203,6 +203,7 @@ html,body{height:100%;background:var(--dark);color:var(--text);font-family:'DM S
       <button class="nav-btn" onclick="prevHole()">&#8249;</button>
       <button class="nav-btn" onclick="showMidRoundScorecard()" title="Scorecard" style="font-size:16px">&#x1F4CB;</button>
       <button class="nav-btn" onclick="nextHole()">&#8250;</button>
+      <button class="nav-btn" onclick="saveInProgress()" title="Save" style="font-size:16px">&#x1F4BE;</button>
       <button class="nav-btn finish" onclick="confirmFinish()" id="finish-btn">Done</button>
     </div>
   </div>
@@ -327,10 +328,18 @@ function renderHome() {
 function histCard(r) {
   var date = new Date(r.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
   var winner = getWinner(r);
-  return '<div class="hist-card" onclick="viewRound(\''+r.id+'\')">'
-    + '<div class="hist-top"><div class="hist-course">'+r.course+'</div><div class="hist-date">'+date+'</div></div>'
+  var inProg = r.inProgress;
+  var holesPlayed = inProg ? r.players[0].scores.filter(function(s){return s>0;}).length : 0;
+  var clickFn = inProg ? "resumeRound('" + r.id + "')" : "viewRound('" + r.id + "')";
+  return '<div class="hist-card" onclick="' + clickFn + '">'
+    + '<div class="hist-top">'
+    + '<div><div class="hist-course">'+r.course+'</div>'
+    + (inProg ? '<div style="display:inline-block;background:rgba(201,168,76,.2);color:var(--gold);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-top:4px">IN PROGRESS &middot; Thru ' + holesPlayed + '</div>' : '')
+    + '</div>'
+    + '<div class="hist-date">'+date+'</div></div>'
     + '<div class="hist-players">'+r.players.map(function(p){return p.name;}).join(' &middot; ')+' &middot; '+r.holes+' holes</div>'
-    + (winner ? '<div class="hist-winner">&#x1F3C6; '+winner+'</div>' : '')
+    + (inProg ? '<div style="font-size:13px;color:var(--green-light);margin-top:4px">Tap to resume &#8594;</div>'
+              : (winner ? '<div class="hist-winner">&#x1F3C6; '+winner+'</div>' : ''))
     + '</div>';
 }
 
@@ -836,6 +845,32 @@ function showMidRoundScorecard() {
     + '<button class="home-btn btn-secondary" onclick="closeModal()" style="margin-top:14px">Close</button>');
 }
 
+function saveInProgress() {
+  var hist = getHistory();
+  var existing = hist.findIndex(function(r){ return r.id === round.id; });
+  round.inProgress = true;
+  round.savedAt = new Date().toISOString();
+  if (existing > -1) {
+    hist[existing] = round;
+  } else {
+    hist.push(round);
+  }
+  saveHistory(hist);
+  // Brief visual feedback
+  var btn = document.querySelector('.nav-btn[onclick="saveInProgress()"]');
+  if (btn) {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '&#x2713;';
+    btn.style.background = 'var(--green)';
+    btn.style.color = 'white';
+    setTimeout(function(){
+      btn.innerHTML = orig;
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 1500);
+  }
+}
+
 function confirmFinish() {
   var isLast = round.currentHole === round.holeData.length-1;
   if (!isLast) { nextHole(); return; }
@@ -986,10 +1021,15 @@ function renderScorecardView() {
 
 // ── SAVE / EXPORT ─────────────────────────────────────────────
 function saveRound() {
-  if (round.saved) { alert('Round already saved!'); return; }
   var hist = getHistory();
+  var existing = hist.findIndex(function(r){ return r.id === round.id; });
   round.saved = true;
-  hist.push(round);
+  round.inProgress = false;
+  if (existing > -1) {
+    hist[existing] = round;
+  } else {
+    hist.push(round);
+  }
   saveHistory(hist);
   alert('Round saved! \u2713');
 }
@@ -1027,6 +1067,18 @@ function viewRound(id) {
   if (!r) return;
   round = r;
   showResults();
+}
+
+function resumeRound(id) {
+  var r = getHistory().find(function(r){ return r.id===id; });
+  if (!r) return;
+  round = r;
+  // Find the last hole with a score entered
+  var lastPlayed = 0;
+  r.players[0].scores.forEach(function(s,i){ if(s>0) lastPlayed = i; });
+  round.currentHole = Math.min(lastPlayed + 1, r.holeData.length - 1);
+  showScreen('s-scoring');
+  renderScoringHole();
 }
 
 // ── COURSES ───────────────────────────────────────────────────
