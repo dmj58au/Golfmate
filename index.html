@@ -176,6 +176,7 @@ html,body{height:100%;background:var(--dark);color:var(--text);font-family:'DM S
     </div>
     <button class="home-btn btn-secondary" onclick="showScreen('s-history')">View All History</button>
     <button class="home-btn btn-secondary" onclick="showScreen('s-courses')">Manage Courses</button>
+    <button class="home-btn btn-secondary" onclick="showDataTransfer()">&#x1F4F2; Transfer to Another Device</button>
   </div>
 </div>
 
@@ -1147,9 +1148,11 @@ function doSearch() {
   var results = document.getElementById('nc-results');
   results.innerHTML = '';
   var tokens = query.split(/\s+/).filter(function(t){ return t.length > 1; });
-  var all = COURSE_DB.concat(getCustomCourses());
+  // Normalise COURSE_DB entries — they lack a holes field
+  var dbNorm = COURSE_DB.map(function(c){ return Object.assign({}, c, {holes: c.holes || c.hole_data.length}); });
+  var all = dbNorm.concat(getCustomCourses());
   var scored = all.map(function(c){
-    var hay = (c.name+' '+c.location).toLowerCase();
+    var hay = (c.name+' '+(c.location||'')).toLowerCase();
     var score = 0;
     tokens.forEach(function(t){ if(hay.indexOf(t)>-1) score+=t.length; });
     if (hay.indexOf(query)>-1) score+=20;
@@ -1164,10 +1167,11 @@ function doSearch() {
   window._searchResults = scored.map(function(x){ return x.c; });
   results.innerHTML = scored.map(function(x,i){
     var par = x.c.hole_data.reduce(function(a,h){ return a+h.par; },0);
+    var holeCount = x.c.holes || x.c.hole_data.length;
     return '<div class="card" style="cursor:pointer;margin-bottom:8px" onclick="previewCourse('+i+')">'
       +'<div style="display:flex;justify-content:space-between;align-items:center">'
       +'<div><div style="font-size:15px;font-weight:600">'+x.c.name+'</div>'
-      +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+x.c.location+' \u00b7 Par '+par+' \u00b7 '+x.c.holes+' holes</div></div>'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+(x.c.location||'')+' \u00b7 Par '+par+' \u00b7 '+holeCount+' holes</div></div>'
       +'<span style="color:var(--green-light);font-size:22px">&#8250;</span>'
       +'</div></div>';
   }).join('');
@@ -1301,6 +1305,152 @@ function openModal(html) {
 function closeModal(e) {
   if (!e || e.target.id==='modal-overlay') {
     document.getElementById('modal-overlay').classList.remove('open');
+  }
+}
+
+// ── DATA TRANSFER ─────────────────────────────────────────────
+function showDataTransfer() {
+  var hist = getHistory();
+  var courses = getCustomCourses();
+  var hasData = hist.length > 0 || courses.length > 0;
+
+  var exportSection = hasData
+    ? '<div style="margin-bottom:20px">'
+      + '<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Your data: <strong style="color:var(--text)">'+hist.length+' round'+(hist.length!==1?'s':'')+' &middot; '+courses.length+' custom course'+(courses.length!==1?'s':'')+'</strong></div>'
+      + '<button class="home-btn btn-gold" onclick="exportData()" style="margin-bottom:8px">&#x2B07; Export My Data</button>'
+      + '<div style="font-size:11px;color:var(--text-muted);text-align:center">Copies a backup code to your clipboard</div>'
+      + '</div>'
+    : '<div style="background:var(--card);border-radius:var(--r);padding:14px;text-align:center;margin-bottom:20px;color:var(--text-muted);font-size:14px">No saved rounds or custom courses yet.</div>';
+
+  openModal(
+    '<div class="modal-title">&#x1F4F2; Device Transfer</div>'
+    + '<div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Move your rounds &amp; courses between devices in seconds.</div>'
+
+    + '<div class="tabs" style="margin-bottom:16px">'
+    + '<div class="tab active" id="dt-tab-export" onclick="dtTab(\'export\')">Export</div>'
+    + '<div class="tab" id="dt-tab-import" onclick="dtTab(\'import\')">Import</div>'
+    + '</div>'
+
+    + '<div id="dt-export-panel">'
+    + exportSection
+    + '<div style="background:var(--card);border-radius:var(--r);padding:12px 14px;border:1px solid rgba(255,255,255,.06)">'
+    + '<div style="font-size:12px;color:var(--gold);font-weight:600;margin-bottom:6px">HOW IT WORKS</div>'
+    + '<div style="font-size:12px;color:var(--text-muted);line-height:1.6">'
+    + '1. Tap <em>Export My Data</em> — copies a code to clipboard<br>'
+    + '2. Paste it into Notes, Messages, or email yourself<br>'
+    + '3. On the other device, open GolfMate &rarr; Transfer &rarr; Import<br>'
+    + '4. Paste the code and tap Import'
+    + '</div></div>'
+    + '</div>'
+
+    + '<div id="dt-import-panel" style="display:none">'
+    + '<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Paste your backup code below:</div>'
+    + '<textarea id="dt-paste" placeholder="Paste your GolfMate backup code here..." '
+    + 'style="width:100%;height:120px;background:var(--card);border:1px solid rgba(255,255,255,.18);border-radius:8px;color:var(--text);font-size:13px;padding:12px;font-family:\'DM Sans\',sans-serif;outline:none;resize:none;-webkit-appearance:none"></textarea>'
+    + '<div id="dt-import-status" style="min-height:20px;margin:8px 0;font-size:13px"></div>'
+    + '<button class="home-btn btn-gold" onclick="importData()">&#x2B06; Import Data</button>'
+    + '<div style="background:var(--card);border-radius:var(--r);padding:12px 14px;border:1px solid rgba(255,255,255,.06);margin-top:4px">'
+    + '<div style="font-size:12px;color:var(--gold);font-weight:600;margin-bottom:6px">NOTE</div>'
+    + '<div style="font-size:12px;color:var(--text-muted);line-height:1.6">Import <em>merges</em> with existing data — it won\'t delete rounds already on this device. Duplicate rounds (same ID) are skipped.</div>'
+    + '</div></div>'
+
+    + '<button class="home-btn btn-secondary" onclick="closeModal()" style="margin-top:8px">Close</button>'
+  );
+}
+
+function dtTab(tab) {
+  document.getElementById('dt-tab-export').classList.toggle('active', tab==='export');
+  document.getElementById('dt-tab-import').classList.toggle('active', tab==='import');
+  document.getElementById('dt-export-panel').style.display = tab==='export' ? '' : 'none';
+  document.getElementById('dt-import-panel').style.display = tab==='import' ? '' : 'none';
+}
+
+function exportData() {
+  var payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    history: getHistory(),
+    customCourses: getCustomCourses()
+  };
+  var json = JSON.stringify(payload);
+  var b64 = btoa(unescape(encodeURIComponent(json)));
+  var code = 'GOLFMATE:' + b64;
+
+  // Try clipboard first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(function() {
+      showExportSuccess(code);
+    }).catch(function() {
+      showExportFallback(code);
+    });
+  } else {
+    showExportFallback(code);
+  }
+}
+
+function showExportSuccess(code) {
+  var panel = document.getElementById('dt-export-panel');
+  if (!panel) return;
+  panel.innerHTML = '<div style="text-align:center;padding:20px 0">'
+    + '<div style="font-size:40px;margin-bottom:12px">&#x2705;</div>'
+    + '<div style="font-size:16px;font-weight:600;color:var(--gold);margin-bottom:8px">Copied to clipboard!</div>'
+    + '<div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Paste it into Notes, Messages, or email it to yourself — then use Import on your other device.</div>'
+    + '<div style="background:var(--card);border-radius:8px;padding:10px;word-break:break-all;font-size:10px;color:var(--text-muted);max-height:80px;overflow:hidden;margin-bottom:12px">'
+    + code.substring(0,80)+'...'
+    + '</div>'
+    + '<button class="home-btn btn-secondary" onclick="copyAgain(\'' + code.replace(/'/g,"\\'") + '\')">Copy Again</button>'
+    + '</div>';
+}
+
+function showExportFallback(code) {
+  var panel = document.getElementById('dt-export-panel');
+  if (!panel) return;
+  panel.innerHTML = '<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Copy this code and paste it on your other device:</div>'
+    + '<textarea readonly style="width:100%;height:100px;background:var(--card);border:1px solid rgba(255,255,255,.18);border-radius:8px;color:var(--text);font-size:11px;padding:10px;font-family:monospace;outline:none;resize:none;word-break:break-all" onclick="this.select()">'
+    + code + '</textarea>'
+    + '<div style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center">Tap the box to select, then copy all</div>';
+}
+
+function copyAgain(code) {
+  navigator.clipboard.writeText(code).catch(function(){});
+}
+
+function importData() {
+  var raw = (document.getElementById('dt-paste').value || '').trim();
+  var status = document.getElementById('dt-import-status');
+
+  if (!raw) { status.innerHTML = '<span style="color:var(--red)">Please paste your backup code first.</span>'; return; }
+  if (raw.indexOf('GOLFMATE:') !== 0) { status.innerHTML = '<span style="color:var(--red)">Invalid code — must start with GOLFMATE:</span>'; return; }
+
+  try {
+    var b64 = raw.substring(9);
+    var json = decodeURIComponent(escape(atob(b64)));
+    var payload = JSON.parse(json);
+    if (!payload.version || !Array.isArray(payload.history)) throw new Error('bad format');
+
+    var existingHist = getHistory();
+    var existingIds = existingHist.map(function(r){ return r.id; });
+    var newRounds = (payload.history || []).filter(function(r){ return existingIds.indexOf(r.id) === -1; });
+
+    var existingCourses = getCustomCourses();
+    var existingCourseIds = existingCourses.map(function(c){ return c.id; });
+    var newCourses = (payload.customCourses || []).filter(function(c){ return existingCourseIds.indexOf(c.id) === -1; });
+
+    saveHistory(existingHist.concat(newRounds));
+    saveCustomCourses(existingCourses.concat(newCourses));
+
+    var exportDate = payload.exportedAt ? new Date(payload.exportedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'unknown';
+
+    status.innerHTML = '<span style="color:#5dbb7a">&#x2713; Imported '
+      + newRounds.length + ' round' + (newRounds.length!==1?'s':'')
+      + ' and ' + newCourses.length + ' course' + (newCourses.length!==1?'s':'')
+      + '. Exported ' + exportDate + '.</span>';
+
+    document.getElementById('dt-paste').value = '';
+    renderHome();
+
+  } catch(e) {
+    status.innerHTML = '<span style="color:var(--red)">&#x26A0; Could not read that code. Make sure you copied the whole thing.</span>';
   }
 }
 
