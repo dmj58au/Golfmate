@@ -326,18 +326,26 @@ function renderHome() {
   preview.innerHTML = recent.map(function(r){ return histCard(r); }).join('');
 }
 
-function histCard(r) {
+function histCard(r, showDelete) {
   var date = new Date(r.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
   var winner = getWinner(r);
   var inProg = r.inProgress;
   var holesPlayed = inProg ? r.players[0].scores.filter(function(s){return s>0;}).length : 0;
   var clickFn = inProg ? "resumeRound('" + r.id + "')" : "viewRound('" + r.id + "')";
-  return '<div class="hist-card" onclick="' + clickFn + '">'
-    + '<div class="hist-top">'
-    + '<div><div class="hist-course">'+r.course+'</div>'
+  var deleteBtn = showDelete
+    ? '<button onclick="event.stopPropagation();confirmDeleteRound(\''+r.id+'\')" '
+      + 'style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:4px 6px;flex-shrink:0;line-height:1" '
+      + 'title="Delete round">&#x1F5D1;</button>'
+    : '';
+  return '<div class="hist-card" onclick="' + clickFn + '" style="position:relative">'
+    + '<div class="hist-top" style="align-items:flex-start">'
+    + '<div style="flex:1"><div class="hist-course">'+r.course+'</div>'
     + (inProg ? '<div style="display:inline-block;background:rgba(201,168,76,.2);color:var(--gold);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-top:4px">IN PROGRESS &middot; Thru ' + holesPlayed + '</div>' : '')
     + '</div>'
-    + '<div class="hist-date">'+date+'</div></div>'
+    + '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'
+    + '<div class="hist-date">'+date+'</div>'
+    + deleteBtn
+    + '</div></div>'
     + '<div class="hist-players">'+r.players.map(function(p){return p.name;}).join(' &middot; ')+' &middot; '+r.holes+' holes</div>'
     + (inProg ? '<div style="font-size:13px;color:var(--green-light);margin-top:4px">Tap to resume &#8594;</div>'
               : (winner ? '<div class="hist-winner">&#x1F3C6; '+winner+'</div>' : ''))
@@ -1060,7 +1068,52 @@ function renderHistory() {
   var hist = getHistory().reverse();
   var el = document.getElementById('history-body');
   if (!hist.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">&#x1F4CB;</div><div>No saved rounds yet.</div></div>'; return; }
-  el.innerHTML = hist.map(function(r){ return histCard(r); }).join('');
+  var clearAll = '<button onclick="confirmClearAll()" '
+    + 'style="background:none;border:1px solid var(--red);color:var(--red);border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:\'DM Sans\',sans-serif;margin-bottom:14px;display:block;width:100%">'
+    + '&#x1F5D1; Delete All Rounds</button>';
+  el.innerHTML = clearAll + hist.map(function(r){ return histCard(r, true); }).join('');
+}
+
+function confirmDeleteRound(id) {
+  var hist = getHistory();
+  var r = hist.find(function(r){ return r.id===id; });
+  if (!r) return;
+  var date = new Date(r.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+  openModal(
+    '<div class="modal-title" style="color:var(--red)">&#x1F5D1; Delete Round?</div>'
+    + '<div style="background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:16px">'
+    + '<div style="font-size:15px;font-weight:600">'+r.course+'</div>'
+    + '<div style="font-size:13px;color:var(--text-muted);margin-top:4px">'+date+' &middot; '+r.players.map(function(p){return p.name;}).join(', ')+'</div>'
+    + '</div>'
+    + '<div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">This cannot be undone.</div>'
+    + '<button class="home-btn btn-danger" onclick="deleteRound(\''+id+'\')">Yes, Delete Round</button>'
+    + '<button class="home-btn btn-secondary" onclick="closeModal()">Cancel</button>'
+  );
+}
+
+function deleteRound(id) {
+  var hist = getHistory().filter(function(r){ return r.id !== id; });
+  saveHistory(hist);
+  closeModal();
+  renderHistory();
+  renderHome();
+}
+
+function confirmClearAll() {
+  var hist = getHistory();
+  openModal(
+    '<div class="modal-title" style="color:var(--red)">Delete All Rounds?</div>'
+    + '<div style="font-size:14px;color:var(--text-muted);margin-bottom:16px">This will permanently delete all <strong style="color:var(--text)">'+hist.length+' round'+(hist.length!==1?'s':'')+'</strong>. Cannot be undone.</div>'
+    + '<button class="home-btn btn-danger" onclick="clearAllRounds()">Yes, Delete Everything</button>'
+    + '<button class="home-btn btn-secondary" onclick="closeModal()">Cancel</button>'
+  );
+}
+
+function clearAllRounds() {
+  saveHistory([]);
+  closeModal();
+  renderHistory();
+  renderHome();
 }
 
 function viewRound(id) {
