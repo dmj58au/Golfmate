@@ -1200,7 +1200,7 @@ function doSearch() {
   var status = document.getElementById('nc-status');
   var results = document.getElementById('nc-results');
   results.innerHTML = '';
-  var tokens = query.split(/\s+/).filter(function(t){ return t.length > 1; });
+  var tokens = query.split(/\s+/).filter(function(t){ return t.length > 0; });
   // Normalise COURSE_DB entries — they lack a holes field
   var dbNorm = COURSE_DB.map(function(c){ return Object.assign({}, c, {holes: c.holes || c.hole_data.length}); });
   var all = dbNorm.concat(getCustomCourses());
@@ -1232,6 +1232,7 @@ function doSearch() {
 
 function previewCourse(idx) {
   var c = window._searchResults[idx];
+  c = Object.assign({}, c, {holes: c.holes || c.hole_data.length});
   var par = c.hole_data.reduce(function(a,h){ return a+h.par; },0);
   var front = c.hole_data.slice(0, Math.min(9,c.holes));
   var back = c.holes > 9 ? c.hole_data.slice(9) : [];
