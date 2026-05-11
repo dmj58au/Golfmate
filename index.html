@@ -179,7 +179,6 @@ html,body{height:100%;background:var(--dark);color:var(--text);font-family:'DM S
     <button class="home-btn btn-secondary" onclick="showScreen('s-history')">View All History</button>
     <button class="home-btn btn-secondary" onclick="showScreen('s-courses')">Manage Courses</button>
     <button class="home-btn btn-secondary" onclick="showDataTransfer()">&#x1F4F2; Transfer to Another Device</button>
-    <button class="home-btn btn-secondary" onclick="showDebug()" style="font-size:12px;opacity:0.5">Debug Info</button>
   </div>
 </div>
 
@@ -1576,27 +1575,6 @@ function importData() {
   } catch(e) {
     status.innerHTML = '<span style="color:var(--red)">&#x26A0; Could not read that code. Make sure you copied the whole thing.</span>';
   }
-}
-
-// ── DEBUG ─────────────────────────────────────────────────────
-function showDebug() {
-  var lines = [];
-  try { lines.push('COURSE_DB type: ' + typeof COURSE_DB); } catch(e) { lines.push('COURSE_DB: ERROR - ' + e.message); }
-  try { lines.push('COURSE_DB length: ' + (Array.isArray(COURSE_DB) ? COURSE_DB.length : 'not array')); } catch(e) { lines.push('COURSE_DB length: ERROR'); }
-  try { lines.push('BUILT_IN: ' + BUILT_IN_COURSES.length); } catch(e) { lines.push('BUILT_IN: ERROR'); }
-  try { lines.push('First course: ' + (COURSE_DB[0] ? COURSE_DB[0].name : 'none')); } catch(e) { lines.push('First course: ERROR'); }
-  try {
-    var q = 'royal';
-    var results = COURSE_DB.filter(function(c){ return (c.name+' '+(c.location||'')).toLowerCase().indexOf(q) > -1; });
-    lines.push('Search "royal": ' + results.length + ' results');
-  } catch(e) { lines.push('Search test: ERROR - ' + e.message); }
-  try { lines.push('Script blocks: ' + document.querySelectorAll('script').length); } catch(e) {}
-  lines.push('UA: ' + navigator.userAgent.substring(0,80));
-  openModal('<div class="modal-title">Debug Info</div>'
-    + '<div style="font-family:monospace;font-size:12px;line-height:1.8;background:var(--dark);padding:12px;border-radius:8px;word-break:break-all">'
-    + lines.map(function(l){ return '<div>' + l + '</div>'; }).join('')
-    + '</div>'
-    + '<button class="home-btn btn-secondary" onclick="closeModal()" style="margin-top:14px">Close</button>');
 }
 
 // ── INIT ──────────────────────────────────────────────────────
